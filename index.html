@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemain M3U Web</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
+    <!-- Add hls.js for better HLS support across browsers -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        
+        /* Custom scrollbar for playlist */
+        .playlist-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .playlist-container::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        .playlist-container::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .playlist-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        /* Video.js customization */
+        .video-js {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        .vjs-big-play-button {
+            background-color: rgba(59, 130, 246, 0.8) !important;
+            border: none !important;
+            border-radius: 50% !important;
+            width: 3em !important;
+            height: 3em !important;
+            line-height: 3em !important;
+            margin-top: -1.5em !important;
+            margin-left: -1.5em !important;
+        }
+        .vjs-big-play-button:hover {
+            background-color: rgba(37, 99, 235, 1) !important;
+        }
+        
+        .channel-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .channel-item:hover {
+            background-color: #334155;
+            transform: translateX(4px);
+        }
+        .channel-item.active {
+            background-color: #2563eb;
+            color: white;
+            border-left: 4px solid #60a5fa;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-slate-800 border-b border-slate-700 p-4 shadow-md flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-tv text-blue-500 text-2xl"></i>
+            <h1 class="text-xl font-bold tracking-wide">Pemain M3U</h1>
+        </div>
+        
+        <div class="flex gap-2 max-w-xl w-full">
+            <input type="text" id="m3u-url" placeholder="Masukkan URL M3U di sini..." 
+                   class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 text-sm">
+            <button onclick="loadM3UFromUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <i class="fa-solid fa-cloud-arrow-down mr-2"></i>Muat
+            </button>
+            <div class="relative">
+                <input type="file" id="m3u-file" accept=".m3u,.m3u8" class="hidden" onchange="loadM3UFromFile(event)">
+                <label for="m3u-file" class="bg-slate-700 hover:bg-slate-600 cursor-pointer text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center h-full">
+                    <i class="fa-solid fa-folder-open"></i>
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden bg-slate-900">
+        
+        <div class="w-full md:w-2/3 lg:w-3/4 p-4 flex flex-col h-1/2 md:h-full shrink-0 md:shrink">
+            <div class="relative flex-1 bg-black rounded-lg overflow-hidden border border-slate-700 flex items-center justify-center" id="player-wrapper">
+                <video id="hls-player" class="w-full h-full object-contain" controls preload="auto">
+                    <!-- Default placeholder video, will be replaced -->
+                </video>
+                
+                <!-- Initial State Overlay -->
+                <div id="initial-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-800 z-10">
+                    <i class="fa-solid fa-film text-6xl text-slate-600 mb-4"></i>
+                    <p class="text-slate-400 font-medium">Sila muat naik fail M3U atau masukkan URL</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 bg-slate-800 rounded-lg p-4 border border-slate-700 shrink-0">
+                <h2 id="now-playing-title" class="text-lg font-semibold truncate">Tiada Siaran</h2>
+                <p id="now-playing-group" class="text-sm text-slate-400 mt-1">Kumpulan: -</p>
+            </div>
+        </div>
+
+        <div class="w-full md:w-1/3 lg:w-1/4 bg-slate-800 border-l border-slate-700 flex flex-col h-1/2 md:h-full">
+            
+            <div class="p-4 border-b border-slate-700 shrink-0">
+                <h3 class="font-bold mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-list mr-2"></i>Senarai Saluran</span>
+                    <span id="channel-count" class="text-xs bg-slate-700 py-1 px-2 rounded-full">0</span>
+                </h3>
+                <div class="relative mb-3">
+                    <input type="text" id="search-input" placeholder="Cari saluran..." onkeyup="filterChannels()"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 text-sm">
+                    <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400"></i>
+                </div>
+                <select id="group-filter" onchange="filterChannels()" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 text-sm">
+                    <option value="all">Semua Kumpulan</option>
+                </select>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto playlist-container p-2" id="playlist-items">
+                <div class="text-center text-slate-500 mt-10 p-4 border border-dashed border-slate-600 rounded-lg">
+                    <i class="fa-solid fa-inbox text-3xl mb-2"></i>
+                    <p class="text-sm">Senarai main kosong.<br>Muat fail M3U untuk bermula.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="error-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+        <div class="bg-slate-800 p-6 rounded-xl max-w-sm w-full mx-4 border border-red-500/30 shadow-2xl transform scale-95 transition-all">
+            <div class="flex items-center gap-3 text-red-400 mb-4">
+                <i class="fa-solid fa-circle-exclamation text-2xl"></i>
+                <h3 class="text-lg font-bold">Ralat</h3>
+            </div>
+            <p id="error-message" class="text-slate-300 mb-6">Sesuatu telah berlaku.</p>
+            <button onclick="closeError()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition-colors">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        let channels = [];
+        let groups = new Set();
+        let player; 
+        let hlsInstance = null;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            player = document.getElementById('hls-player');
+            
+            // Add error handling to native video element
+            player.addEventListener('error', function(e) {
+                const error = player.error;
+                let errorMsg = "Ralat tidak diketahui berlaku semasa memainkan video.";
+                if (error) {
+                    switch (error.code) {
+                        case 1: errorMsg = "Video dimatalkan oleh pengguna."; break;
+                        case 2: errorMsg = "Ralat rangkaian: Gagal memuat turun video (Kemungkinan masalah CORS atau pautan rosak)."; break;
+                        case 3: errorMsg = "Ralat penyahkodan: Video rosak atau masalah pelayar."; break;
+                        case 4: errorMsg = "Format video tidak disokong (Mungkin memerlukan HLS/M3U8)."; break;
+                    }
+                }
+                showError(errorMsg);
+            });
+        });
+
+        function showError(msg) {
+            document.getElementById('error-message').textContent = msg;
+            const modal = document.getElementById('error-modal');
+            modal.classList.remove('hidden');
+            // Small animation effect
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeError() {
+            const modal = document.getElementById('error-modal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function parseM3U(content) {
+            const lines = content.split('\n');
+            const parsedChannels = [];
+            let currentGroup = 'Tanpa Kumpulan';
+            let currentLogo = '';
+            let currentName = '';
+            
+            // Check if it's a valid M3U file
+            if (!lines[0].trim().startsWith('#EXTM3U')) {
+                showError("Fail tidak sah. Ia mesti bermula dengan #EXTM3U");
+                return [];
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                if (line.startsWith('#EXTINF:')) {
+                    // Reset defaults for new entry
+                    currentGroup = 'Tanpa Kumpulan';
+                    currentLogo = '';
+                    currentName = 'Saluran Tidak Diketahui';
+
+                    // Extract attributes
+                    const groupMatch = line.match(/group-title="([^"]*)"/);
+                    if (groupMatch) currentGroup = groupMatch[1];
+                    
+                    const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+                    if (logoMatch) currentLogo = logoMatch[1];
+
+                    // Extract name (usually comes after the comma)
+                    const parts = line.split(',');
+                    if (parts.length > 1) {
+                        currentName = parts.slice(1).join(',').trim();
+                    }
+                } else if (!line.startsWith('#')) {
+                    // This is the URL line
+                    parsedChannels.push({
+                        name: currentName,
+                        group: currentGroup,
+                        logo: currentLogo,
+                        url: line
+                    });
+                }
+            }
+            return parsedChannels;
+        }
+
+        function renderPlaylist(data) {
+            const container = document.getElementById('playlist-items');
+            container.innerHTML = '';
+            
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-slate-500 mt-10 p-4">
+                        <p>Tiada saluran dijumpai.</p>
+                    </div>`;
+                return;
+            }
+
+            data.forEach((channel, index) => {
+                const div = document.createElement('div');
+                div.className = 'channel-item p-3 mb-2 rounded-lg cursor-pointer border border-slate-700 bg-slate-800 flex items-center gap-3';
+                div.onclick = () => playChannel(channel, index);
+                // Assign an ID for easy styling when active
+                div.id = `channel-btn-${index}`;
+
+                // Handle missing logos with a placeholder
+                const imgHtml = channel.logo 
+                    ? `<img src="${channel.logo}" class="w-10 h-10 rounded object-contain bg-slate-900" onerror="this.onerror=null; this.src='https://placehold.co/40x40/1e293b/e2e8f0?text=TV';">` 
+                    : `<div class="w-10 h-10 rounded bg-slate-700 flex items-center justify-center shrink-0"><i class="fa-solid fa-tv text-slate-400"></i></div>`;
+
+                div.innerHTML = `
+                    ${imgHtml}
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-medium truncate text-sm" title="${channel.name}">${channel.name}</h4>
+                        <p class="text-xs text-slate-400 truncate">${channel.group}</p>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateGroupsDropdown() {
+            const select = document.getElementById('group-filter');
+            // Keep the "All" option
+            select.innerHTML = '<option value="all">Semua Kumpulan</option>';
+            
+            // Sort groups alphabetically
+            const sortedGroups = Array.from(groups).sort();
+            
+            sortedGroups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                select.appendChild(option);
+            });
+        }
+
+        function loadData(parsedData) {
+            channels = parsedData;
+            groups.clear();
+            
+            channels.forEach(ch => {
+                if (ch.group) groups.add(ch.group);
+            });
+
+            document.getElementById('channel-count').textContent = channels.length;
+            
+            updateGroupsDropdown();
+            renderPlaylist(channels);
+            
+            if(channels.length > 0) {
+                 document.getElementById('initial-overlay').classList.add('hidden');
+            }
+        }
+
+        async function loadM3UFromUrl() {
+            const urlInput = document.getElementById('m3u-url');
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                showError("Sila masukkan URL M3U.");
+                return;
+            }
+
+            try {
+                // Change button state
+                const btn = urlInput.nextElementSibling;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat...';
+                btn.disabled = true;
+
+                // Note: Fetching cross-origin URLs might fail due to CORS. 
+                // We use a free cors proxy as a fallback, but it's not guaranteed for production.
+                // It's better if the user provides a direct file if CORS blocks.
+                let response;
+                try {
+                     response = await fetch(url);
+                } catch(e) {
+                     // Try with a proxy if direct fails
+                     response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+                }
+
+                if (!response.ok) throw new Error("Gagal memuat turun fail.");
+                
+                const text = await response.text();
+                const data = parseM3U(text);
+                
+                if (data.length > 0) {
+                    loadData(data);
+                    urlInput.value = ''; // Clear input on success
+                }
+                
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+            } catch (error) {
+                showError("Ralat memuatkan URL: " + error.message + ". Kemungkinan masalah CORS. Cuba muat turun fail dan gunakannya.");
+                const btn = urlInput.nextElementSibling;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down mr-2"></i>Muat';
+                btn.disabled = false;
+            }
+        }
+
+        function loadM3UFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const data = parseM3U(text);
+                if (data.length > 0) {
+                    loadData(data);
+                }
+            };
+            reader.onerror = function() {
+                showError("Gagal membaca fail.");
+            };
+            reader.readAsText(file);
+            
+            // Reset input so the same file can be selected again
+            event.target.value = '';
+        }
+
+        function filterChannels() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const groupFilter = document.getElementById('group-filter').value;
+
+            const filtered = channels.filter(channel => {
+                const matchesSearch = channel.name.toLowerCase().includes(searchTerm);
+                const matchesGroup = groupFilter === 'all' || channel.group === groupFilter;
+                return matchesSearch && matchesGroup;
+            });
+
+            renderPlaylist(filtered);
+            document.getElementById('channel-count').textContent = filtered.length;
+        }
+
+        function playChannel(channel, index) {
+            // Remove active class from all
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            
+            // Add active class to clicked (needs to find it by ID since DOM is re-rendered on filter)
+            const activeEl = document.getElementById(`channel-btn-${index}`);
+            if(activeEl) activeEl.classList.add('active');
+
+            // Update UI
+            document.getElementById('now-playing-title').textContent = channel.name;
+            document.getElementById('now-playing-group').textContent = `Kumpulan: ${channel.group}`;
+            document.getElementById('initial-overlay').classList.add('hidden');
+
+            const videoSrc = channel.url;
+            
+            // Destroy existing hls instance if it exists
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+
+            // Check if it's an HLS stream and if the browser supports hls.js
+            if (videoSrc.includes('.m3u8') && Hls.isSupported()) {
+                hlsInstance = new Hls({
+                    // Basic configuration for better resilience
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                });
+                
+                hlsInstance.loadSource(videoSrc);
+                hlsInstance.attachMedia(player);
+                
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    player.play().catch(function(error) {
+                         console.log("Autoplay prevented or playback error:", error);
+                    });
+                });
+                
+                // Handle specific HLS errors
+                hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hlsInstance.destroy();
+                                showError("Ralat Rangkaian: Gagal memuatkan strim. Ini biasanya disebabkan oleh masalah CORS pada pelayan penyedia strim atau pautan telah tamat tempoh.");
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("Media error encountered, trying to recover...");
+                                hlsInstance.recoverMediaError();
+                                break;
+                            default:
+                                hlsInstance.destroy();
+                                showError("Gagal memainkan strim ini. Ia mungkin tidak tersedia atau format tidak disokong.");
+                                break;
+                        }
+                    }
+                });
+            } 
+            // Fallback for Safari which supports HLS natively or standard MP4
+            else if (player.canPlayType('application/vnd.apple.mpegurl') || !videoSrc.includes('.m3u8')) {
+                player.src = videoSrc;
+                player.addEventListener('loadedmetadata', function() {
+                    player.play().catch(function(error) {
+                         console.log("Autoplay prevented or playback error:", error);
+                    });
+                });
+            } else {
+                showError("Pelayar anda tidak menyokong format video ini.");
+            }
+        }
+        
+        // Add a hidden way to load demo data by typing 'demo' in the search
+        document.getElementById('search-input').addEventListener('input', function(e) {
+            if(e.target.value.toLowerCase() === 'demo data') {
+                const demoM3U = `#EXTM3U
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Test-Logo.svg/1200px-Test-Logo.svg.png" group-title="Ujian",Video Ujian Big Buck Bunny
+http://sample.vodobox.com/big_buck_bunny_4k/big_buck_bunny_4k.m3u8
+#EXTINF:-1 tvg-logo="" group-title="Ujian",Video Apple HLS Ujian
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+#EXTINF:-1 group-title="Berita",Siaran Berita Contoh
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8`;
+                loadData(parseM3U(demoM3U));
+                e.target.value = '';
+            }
+        });
+    </script>
+</body>
+</html>

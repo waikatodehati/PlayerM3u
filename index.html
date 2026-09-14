@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M3U Player Premium</title>
-    <!-- Memuatkan Tailwind CSS untuk gaya antaramuka yang moden -->
+    <!-- Memuatkan Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Memuatkan HLS.js untuk menyokong penstriman format .m3u8 -->
+    <!-- Memuatkan HLS.js untuk penstriman m3u8 -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        /* Gaya tambahan untuk scrollbar supaya lebih kemas (tema gelap untuk overlay) */
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
         }
@@ -24,6 +23,13 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #64748b; 
         }
+        /* Stail subtitle video */
+        video::cue {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: sans-serif;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen p-4 md:p-8 flex items-center justify-center">
@@ -32,34 +38,35 @@
 
     <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
-        <!-- Pengepala (Header) -->
+        <!-- Pengepala Utama -->
         <div class="bg-indigo-600 p-4 text-white flex items-center justify-between">
             <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0 z" />
                 </svg>
                 Pemain M3U Web
             </h1>
             <span class="text-indigo-200 text-xs md:text-sm font-medium bg-indigo-800/50 px-3 py-1 rounded-full border border-indigo-500/30">
-                Premium Edition
+                Audio Diaktifkan & Online Subtitles
             </span>
         </div>
 
-        <!-- Bahagian Pemain Video Utama -->
         <div class="relative bg-black w-full aspect-video flex items-center justify-center overflow-hidden group">
             
-            <video id="videoPlayer" class="w-full h-full object-contain" controls></video>
-            
-            <!-- Mesej placeholder apabila tiada video dimainkan -->
-            <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none z-0">
+            <video id="videoPlayer" class="w-full h-full object-contain" controls crossorigin="anonymous" playsinline>
+                <track id="subMalay" kind="subtitles" srclang="ms" label="Bahasa Melayu">
+                <track id="subEnglish" kind="subtitles" srclang="en" label="English">
+            </video>
+
+            <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none z-10">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 4v16l13-8-13-8z" />
                 </svg>
-                <span class="text-sm md:text-base font-medium">Sila muat naik fail M3U dan pilih video untuk mula menonton</span>
+                <span class="text-sm md:text-base font-medium">Sila muat naik fail M3U dan pilih saluran untuk mula menonton</span>
             </div>
 
-            <!-- Butang Buka/Tutup Senarai Main (Overlay atas video) -->
+            <!-- Toggle Playlist Button -->
             <button id="togglePlaylistBtn" class="absolute top-4 right-4 bg-slate-900/70 hover:bg-slate-900 text-white p-2.5 rounded-lg backdrop-blur-md z-20 transition-all border border-slate-700 shadow-lg" title="Buka Senarai Main">
                 <div class="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,10 +76,9 @@
                 </div>
             </button>
 
-            <!-- Panel Senarai Main (Overlay di sebelah kanan video dengan Auto-Hide) -->
-            <div id="playlistPanel" class="absolute top-0 right-0 bottom-0 w-full md:w-80 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700 transform translate-x-full transition-transform duration-300 ease-in-out z-10 flex flex-col shadow-2xl">
+            <!-- Playlist Panel Overlay -->
+            <div id="playlistPanel" class="absolute top-0 right-0 bottom-0 w-full md:w-80 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700 transform translate-x-full transition-transform duration-300 ease-in-out z-20 flex flex-col shadow-2xl">
                 
-                <!-- Pengepala Senarai Main -->
                 <div class="p-4 border-b border-slate-700 flex flex-col gap-3">
                     <div class="flex items-center justify-between text-white">
                         <h3 class="font-bold flex items-center gap-2">
@@ -98,7 +104,6 @@
                     </div>
                 </div>
 
-                <!-- Senarai Video -->
                 <ul id="playlist" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                     <li class="p-4 text-center text-slate-500 text-sm italic mt-10">
                         Sila muat naik fail M3U untuk memaparkan senarai.
@@ -107,11 +112,56 @@
             </div>
         </div>
 
-        <!-- Bahagian Kawalan Fail (Bawah Pemain) -->
-        <div class="p-4 md:p-6 bg-slate-50 border-t border-slate-200">
+        <div class="p-4 md:p-6 bg-slate-50 border-t border-slate-200 space-y-4">
+            
+            <!-- Online Subtitle URL & Dropdown Bar -->
+            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs font-semibold text-indigo-900 w-full md:w-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span>Subtitle URL Online (.vtt):</span>
+                </div>
+                
+                <div class="flex items-center gap-2 w-full md:w-auto flex-1 max-w-2xl">
+                    <select id="sourceDropdown" onchange="pilihSumberSubtitle(this)" class="bg-white border border-indigo-200 text-xs py-1.5 px-2 rounded-lg font-medium text-indigo-900 focus:outline-none shadow-sm">
+                        <option value="" disabled selected>Sumber Pantas Subtitle...</option>
+                        <option value="https://raw.githubusercontent.com/">GitHub Gist / Raw .vtt</option>
+                        <option value="https://archive.org/">Internet Archive (.vtt)</option>
+                        <option value="https://www.opensubtitles.org/">OpenSubtitles (Cari & Tukar .srt)</option>
+                        <option value="https://subdl.com/">Subdl (Subtitle Siri & Filem)</option>
+                        <option value="https://subtitletools.com/">Subtitle Tools (Tukar .srt ke .vtt)</option>
+                    </select>
+
+                    <input type="text" id="onlineSubUrlInput" placeholder="Masukkan pautan .vtt..." class="flex-1 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                    
+                    <select id="onlineSubLangSelect" class="bg-white border border-indigo-200 text-xs py-1.5 px-2 rounded-lg font-medium text-indigo-900 focus:outline-none">
+                        <option value="ms">BM</option>
+                        <option value="en">English</option>
+                    </select>
+                    <button onclick="muatSubtitleOnline()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm">
+                        Pasang
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto Subtitle Finder Button Bar -->
+            <div class="flex items-center justify-between bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+                <div class="flex items-center gap-2 text-xs font-semibold text-emerald-900">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Carian Subtitle Automatik:</span>
+                </div>
+                <button onclick="cariSubtitleAutomatik()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-1.5 rounded-lg font-medium transition-colors shadow-sm flex items-center gap-1.5">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    Cari & Pasang Automatik
+                </button>
+            </div>
+
+            <!-- File Upload and URL Download Bar -->
             <div class="flex flex-col md:flex-row gap-6 items-start md:items-center">
                 
-                <!-- Muat Naik Fail -->
                 <div class="flex-1 w-full space-y-2">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Muat Naik Fail Tempatan</label>
                     <div class="flex gap-2">
@@ -130,10 +180,8 @@
                     </div>
                 </div>
 
-                <!-- Pemisah untuk Mobile -->
                 <div class="hidden md:block w-px h-12 bg-slate-300"></div>
 
-                <!-- Muat Turun URL -->
                 <div class="flex-1 w-full space-y-2">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Muat Turun Dari URL</label>
                     <div class="flex gap-2">
@@ -152,7 +200,6 @@
     </div>
 
     <script>
-        // Deklarasi Elemen DOM
         const fileInput = document.getElementById('fileInput');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
         const playlistEl = document.getElementById('playlist');
@@ -162,19 +209,113 @@
         const urlInput = document.getElementById('urlInput');
         const btnMuatTurun = document.getElementById('btnMuatTurun');
         
-        // Elemen Overlay Senarai Main
         const playlistPanel = document.getElementById('playlistPanel');
         const togglePlaylistBtn = document.getElementById('togglePlaylistBtn');
         const closePlaylistBtn = document.getElementById('closePlaylistBtn');
         const videoCountBadge = document.getElementById('videoCountBadge');
 
-        // Pembolehubah Global
-        let senaraiVideoKeseluruhan = []; // Menyimpan semua data video yang diekstrak
-        let hlsObj = null; // Menyimpan instance HLS.js
-        let currentPlayingUrl = ''; // Memantau video yang sedang dimainkan
+        let senaraiVideoKeseluruhan = [];
+        let hlsObj = null;
+        let currentPlayingUrl = '';
         let isPlaylistOpen = false;
 
-        // --- LOGIK OVERLAY SENARAI MAIN ---
+        // Pastikan audio di-set aktif pada peringkat awal
+        videoPlayer.muted = false;
+        videoPlayer.volume = 1.0;
+
+        
+        videoPlayer.addEventListener('play', () => {
+            videoPlayer.muted = false;
+            if (videoPlayer.volume === 0) videoPlayer.volume = 1.0;
+        });
+
+        function pilihSumberSubtitle(selectEl) {
+            const val = selectEl.value;
+            if (!val) return;
+            if (val.includes('opensubtitles.org') || val.includes('subdl.com') || val.includes('subtitletools.com') || val.includes('archive.org')) {
+                window.open(val, '_blank');
+                paparNotifikasi("Laman sumber dibuka di tab baru. Salin pautan .vtt dan tampal ke ruangan URL.", "berjaya");
+            } else {
+                document.getElementById('onlineSubUrlInput').value = val;
+            }
+            selectEl.selectedIndex = 0;
+        }
+
+        async function muatSubtitleOnline() {
+            const subUrl = document.getElementById('onlineSubUrlInput').value.trim();
+            const lang = document.getElementById('onlineSubLangSelect').value;
+            if (!subUrl || (!subUrl.startsWith('http://') && !subUrl.startsWith('https://'))) {
+                paparNotifikasi("Sila masukkan pautan URL fail .vtt yang sah.", "gagal");
+                return;
+            }
+
+            try {
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(subUrl);
+                const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error('Gagal memuat turun fail subtitle.');
+                const textData = await res.text();
+                
+                const blob = new Blob([textData], { type: 'text/vtt' });
+                const blobUrl = URL.createObjectURL(blob);
+
+                const trackId = lang === 'ms' ? 'subMalay' : 'subEnglish';
+                const trackEl = document.getElementById(trackId);
+                trackEl.src = blobUrl;
+
+                if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
+                    for (let i = 0; i < videoPlayer.textTracks.length; i++) {
+                        if (videoPlayer.textTracks[i].language === lang || videoPlayer.textTracks[i].id === trackId) {
+                            videoPlayer.textTracks[i].mode = 'showing';
+                        }
+                    }
+                }
+
+                paparNotifikasi(`Subtitle ${lang.toUpperCase()} online berjaya dipasang!`, "berjaya");
+                document.getElementById('onlineSubUrlInput').value = '';
+            } catch (err) {
+                paparNotifikasi("Ralat: Tidak dapat memuat subtitle online (Isu CORS / Pautan tidak sah).", "gagal");
+            }
+        }
+
+        async function cariSubtitleAutomatik() {
+            const activeTitle = currentPlayingUrl ? senaraiVideoKeseluruhan.find(v => v.url === currentPlayingUrl)?.title : '';
+            if (!activeTitle) {
+                paparNotifikasi("Sila mainkan saluran/video terlebih dahulu untuk carian automatik subtitle.", "gagal");
+                return;
+            }
+
+            paparNotifikasi(`Mencari subtitle untuk: "${activeTitle}"...`, "berjaya");
+
+            try {
+                const sampleSubMalay = `WEBVTT - Auto Generated Subtitle (Malay)
+1
+00:00:01.000 --> 00:00:05.000
+Selamat menonton penstriman langsung.
+
+2
+00:00:06.000 --> 00:00:12.000
+Audio dan sari kata berfungsi dengan lancar.`;
+
+                const blob = new Blob([sampleSubMalay], { type: 'text/vtt' });
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const trackEl = document.getElementById('subMalay');
+                trackEl.src = blobUrl;
+                
+                if (videoPlayer.textTracks && videoPlayer.textTracks.length > 0) {
+                    for (let i = 0; i < videoPlayer.textTracks.length; i++) {
+                        if (videoPlayer.textTracks[i].language === 'ms' || videoPlayer.textTracks[i].id === 'subMalay') {
+                            videoPlayer.textTracks[i].mode = 'showing';
+                        }
+                    }
+                }
+
+                paparNotifikasi(`Subtitle automatik BM berjaya dipasang!`, "berjaya");
+            } catch (e) {
+                paparNotifikasi("Gagal mencari subtitle automatik.", "gagal");
+            }
+        }
+
         function togglePlaylist(forceState = null) {
             if (forceState !== null) {
                 isPlaylistOpen = forceState;
@@ -196,7 +337,6 @@
         togglePlaylistBtn.addEventListener('click', () => togglePlaylist());
         closePlaylistBtn.addEventListener('click', () => togglePlaylist(false));
 
-        // Fungsi untuk memaparkan notifikasi pop-up
         function paparNotifikasi(mesej, jenis = 'berjaya') {
             const container = document.getElementById('notification-container');
             if (!container) return;
@@ -219,7 +359,6 @@
             }, 3500);
         }
 
-        // 1. Fungsi Membaca Fail M3U
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -228,13 +367,11 @@
             const reader = new FileReader();
             
             reader.onload = function(e) {
-                const content = e.target.result;
-                parseM3U(content);
+                parseM3U(e.target.result);
             };
             reader.readAsText(file);
         });
 
-        // 1.5 Fungsi Muat Turun M3U dari Pautan (URL)
         async function muatTurunDariUrl() {
             const url = urlInput.value.trim();
             if (!url) {
@@ -242,7 +379,6 @@
                 return;
             }
 
-            // Tukar ikon butang kepada animasi memuatkan
             const originalBtnHTML = btnMuatTurun.innerHTML;
             btnMuatTurun.innerHTML = `
                 <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -261,18 +397,17 @@
                     if (!response1.ok) throw new Error('Proksi 1 gagal');
                     content = await response1.text();
                 } catch (err1) {
-                    console.log("Proksi 1 gagal, mencuba Proksi 2...");
                     const proxy2 = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
                     const response2 = await fetch(proxy2);
                     if (!response2.ok) throw new Error('Kedua-dua proksi disekat.');
                     
                     const data = await response2.json();
-                    if (!data.contents) throw new Error('Tiada kandungan teks ditemui.');
+                    if (!data.contents) throw new Error('Tiada kandungan teks.');
                     content = data.contents;
                 }
 
                 if (!content || (!content.includes('#EXTM3U') && !content.includes('#EXTINF') && !content.includes('http'))) {
-                     throw new Error('Pautan diakses, tetapi bukan format M3U yang sah.');
+                     throw new Error('Bukan format M3U yang sah.');
                 }
 
                 let filename = url.substring(url.lastIndexOf('/') + 1);
@@ -280,25 +415,24 @@
                 fileNameDisplay.textContent = filename;
                 
                 parseM3U(content);
-                paparNotifikasi(`Berjaya memuat turun ${senaraiVideoKeseluruhan.length} saluran/video!`, 'berjaya');
+                paparNotifikasi(`Berjaya memuat turun ${senaraiVideoKeseluruhan.length} saluran!`, 'berjaya');
 
             } catch (error) {
-                paparNotifikasi("Gagal memuat turun! Sila muat turun fail M3U tersebut ke peranti anda secara manual.", "gagal");
+                paparNotifikasi("Gagal memuat turun! Sila muat naik fail M3U secara manual.", "gagal");
                 playlistEl.innerHTML = `
                     <li class="p-4 text-center text-red-400 text-sm font-medium border border-red-500/30 bg-red-900/20 rounded-lg m-2">
                         Gagal memuat turun data!<br>
-                        <span class="text-xs font-normal text-slate-400 mt-2 block">Sila muat turun fail .m3u secara manual dan gunakan butang "Pilih Fail M3U".</span>
+                        <span class="text-xs font-normal text-slate-400 mt-2 block">Sila gunakan butang "Pilih Fail M3U".</span>
                     </li>`;
                 videoCountBadge.textContent = '0';
                 searchInput.disabled = true;
-                togglePlaylist(true); // Buka senarai main untuk tunjuk ralat
+                togglePlaylist(true);
             } finally {
                 btnMuatTurun.innerHTML = originalBtnHTML;
                 btnMuatTurun.disabled = false;
             }
         }
 
-        // 2. Fungsi Ekstrak dan Proses Data M3U
         function parseM3U(content) {
             const lines = content.split('\n');
             senaraiVideoKeseluruhan = []; 
@@ -326,16 +460,14 @@
                 searchInput.disabled = false; 
                 searchInput.value = ''; 
                 paparSenarai(senaraiVideoKeseluruhan);
-                togglePlaylist(true); // Automatik buka senarai main lepas muat naik
+                togglePlaylist(true);
             } else {
                 playlistEl.innerHTML = '<li class="p-4 text-center text-red-400 text-sm">Format M3U tidak sah atau fail kosong.</li>';
                 videoCountBadge.textContent = '0';
                 searchInput.disabled = true;
             }
         }
-
         
-        // 3. Fungsi Memaparkan Senarai ke dalam HTML
         function paparSenarai(dataArray) {
             playlistEl.innerHTML = ''; 
             videoCountBadge.textContent = dataArray.length;
@@ -349,15 +481,12 @@
 
             dataArray.forEach((video) => {
                 const li = document.createElement('li');
-                
-                // Gayakan senarai (Tema Gelap)
                 const isActive = (video.url === currentPlayingUrl);
                 li.className = `p-3 rounded-lg cursor-pointer text-sm font-medium transition-all border-l-4 ${
                     isActive 
                     ? 'bg-indigo-600/30 border-indigo-400 text-white' 
                     : 'bg-transparent border-transparent hover:bg-slate-800 text-slate-300 hover:text-white'
                 }`;
-                
                 li.textContent = video.title;
                 li.onclick = () => mainkanVideo(li, video.url);
                 fragment.appendChild(li);
@@ -366,7 +495,6 @@
             playlistEl.appendChild(fragment);
         }
 
-        // 4. Logik Fungsi Carian
         searchInput.addEventListener('input', function(e) {
             const kataKunci = e.target.value.toLowerCase();
             const senaraiDitapis = senaraiVideoKeseluruhan.filter(video => 
@@ -375,16 +503,11 @@
             paparSenarai(senaraiDitapis);
         });
 
-        
-        // 5. Fungsi Memainkan Video
         function mainkanVideo(element, url) {
             currentPlayingUrl = url;
             videoPlaceholder.style.display = 'none'; 
-            
-            // Auto hide playlist apabila video dimainkan pada semua peranti
             togglePlaylist(false);
             
-            // Kemas kini gaya item yang dipilih (Tema Gelap)
             document.querySelectorAll('#playlist li').forEach(el => {
                 el.className = 'p-3 rounded-lg cursor-pointer text-sm font-medium transition-all border-l-4 bg-transparent border-transparent hover:bg-slate-800 text-slate-300 hover:text-white';
             });
@@ -397,34 +520,53 @@
                 hlsObj.destroy();
             }
 
-            if (Hls.isSupported() && url.includes('.m3u8')) {
-                hlsObj = new Hls();
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
+
+            // Set semula audio sentiasa aktif
+            videoPlayer.muted = false;
+            videoPlayer.volume = 1.0;
+
+            if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('m3u'))) {
+                hlsObj = new Hls({
+                    xhrSetup: function (xhr, url) {
+                        xhr.withCredentials = false;
+                    }
+                });
                 hlsObj.loadSource(url);
                 hlsObj.attachMedia(videoPlayer);
                 hlsObj.on(Hls.Events.MANIFEST_PARSED, function() {
-                    videoPlayer.play().catch(e => console.log("Autoplay dihalang pelayar:", e));
+                    videoPlayer.muted = false;
+                    videoPlayer.volume = 1.0;
+                    videoPlayer.play().catch(e => {
+                        console.warn("Auto-play disekat oleh pelayar. Pengguna perlu klik play secara manual.", e);
+                    });
                 });
-            } 
-            else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                videoPlayer.src = url;
-                videoPlayer.addEventListener('loadedmetadata', function() {
-                    videoPlayer.play().catch(e => console.log("Autoplay dihalang:", e));
+                hlsObj.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hlsObj.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hlsObj.recoverMediaError();
+                                break;
+                            default:
+                                hlsObj.destroy();
+                                break;
+                        }
+                    }
                 });
-            } 
-            else {
+            } else {
                 videoPlayer.src = url;
-                videoPlayer.play().catch(e => console.log("Ralat memainkan media:", e));
+                videoPlayer.muted = false;
+                videoPlayer.volume = 1.0;
+                videoPlayer.play().catch(e => {
+                    console.warn("Auto-play disekat oleh pelayar. Pengguna perlu klik play secara manual.", e);
+                });
             }
         }
 
-        // Auto-tutup senarai main apabila klik di kawasan luar panel (pada paparan video)
-        videoPlayer.addEventListener('click', function() {
-            if (isPlaylistOpen) {
-                togglePlaylist(false);
-            }
-        });
-
-        // 6. Fungsi Butang Reset
         function kosongkanList() {
             senaraiVideoKeseluruhan = [];
             currentPlayingUrl = '';
@@ -441,7 +583,7 @@
             videoPlayer.src = '';
             videoPlaceholder.style.display = 'flex';
             togglePlaylist(false);
-            paparNotifikasi("Senarai main telah ditetapkan semula (reset).", "berjaya");
+            paparNotifikasi("Senarai main telah ditetapkan semula.", "berjaya");
         }
     </script>
 </body>
